@@ -19,13 +19,13 @@ DEEP_SKY = (0, 255, 127)
 LASER_HEIGHT = 37
 
 intro_picture = pygame.image.load("pics/intro.jpg")
-beetle = pygame.image.load('pics/beatles.png')
 beetle1 = pygame.image.load('pics/beatle1.png')
+beetle2 = pygame.image.load('pics/beetle2.png')
 background_image = pygame.image.load("pics/background.jpg")
 carImg = pygame.image.load('pics/wing.png')
 
 RECORD_POINTS = 0
-with open('record_table.txt', 'r') as record_table:
+with open('service_files/record_table.txt', 'r') as record_table:
     r = record_table.readline()
     RECORD_POINTS = int(r) if r else 0
 
@@ -56,7 +56,7 @@ def button(msg, x, y, w, h, i_color, a_color, action=None):
             action()
     else:
         pygame.draw.rect(gameDisplay, i_color, (x, y, w, h))
-    small_text = pygame.font.Font('FreeSansBold.ttf', 20)
+    small_text = pygame.font.Font('service_files/FreeSansBold.ttf', 20)
     text_surf, text_rect = text_object(msg, small_text)
     text_rect.center = (x + w / 2, y + h / 2)
     gameDisplay.blit(text_surf, text_rect)
@@ -68,7 +68,7 @@ def laser(laser_x, laser_y, laser_color):
 
 def game_intro():
     intro = True
-    with open('record_table.txt', 'r') as r_table:
+    with open('service_files/record_table.txt', 'r') as r_table:
         RECORD_POINTS = int(r_table.readline())
     while intro:
         gameDisplay.blit(intro_picture, [0, 0])
@@ -76,8 +76,8 @@ def game_intro():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-        large_text = pygame.font.Font('FreeSansBold.ttf', 75)
-        small_text = pygame.font.Font('FreeSansBold.ttf', 25)
+        large_text = pygame.font.Font('service_files/FreeSansBold.ttf', 75)
+        small_text = pygame.font.Font('service_files/FreeSansBold.ttf', 25)
 
         rec_surf, rec_rect = text_object('Рекорд убийств: '+str(RECORD_POINTS), small_text)
         text_surf, text_rect = text_object('Жуки атакуют', large_text)
@@ -104,6 +104,7 @@ def car(x, y):
 
 
 car_width = carImg.get_width()
+car_height = carImg.get_height()
 
 
 def text_object(text, font):
@@ -112,7 +113,7 @@ def text_object(text, font):
 
 
 def message_display(text):
-    large_text = pygame.font.Font('FreeSansBold.ttf', 75)
+    large_text = pygame.font.Font('service_files/FreeSansBold.ttf', 75)
     text_surf, text_rect = text_object(text, large_text)
     text_rect.center = (DISPLAY_WIDTH / 2, DISPLAY_HEIGHT / 2)
     gameDisplay.blit(text_surf, text_rect)
@@ -129,16 +130,22 @@ def things_dodged(count):
 
 def crash(points):
     if points > RECORD_POINTS:
-        with open('record_table.txt', 'w') as r_table:
+        with open('service_files/record_table.txt', 'w') as r_table:
             r_table.write(str(points))
-    pygame.mixer.music.load('music/fail.mp3')
+    pygame.mixer.music.load('music/fail.ogg')
     pygame.mixer.music.play()
     message_display('Ты съеден!')
 
     time.sleep(5)
 
 
+def pick_beetle_model(beetles):
+    rand_num = random.randint(0, 1)
+    return beetles[rand_num]
+
+
 def game_loop():
+    beetle_chosen = beetle2
     laser_int = 0
     dodge = 0  # СЧЁТ ВСЕХ ЖУКОВ
     points = 0  # СЧЁТ ПОДБИТЫХ ЖУКОВ
@@ -150,10 +157,10 @@ def game_loop():
     things_start_x = random.randrange(2, DISPLAY_WIDTH - 70)  # минус ширина картинки
     things_start_y = -600
     thing_speed = 5
-    thing_width = beetle.get_width()
-    thing_height = beetle.get_height()
+    thing_width = beetle_chosen.get_width()
+    thing_height = beetle_chosen.get_height()
 
-    pygame.mixer.music.load('music/music.ogg.mp3')
+    pygame.mixer.music.load('music/main_music.ogg')
     pygame.mixer.music.play(-1)
 
     game_exit = False
@@ -177,6 +184,8 @@ def game_loop():
                     x_change = 0
                 # СТРЕЛЬБА ЧЕРЕЗ ПРОБЕЛ
                 if event.key == pygame.K_SPACE:
+                    pygame.mixer.Channel(1).play(pygame.mixer.Sound('music/laser.ogg'))
+                    pygame.mixer.Channel(1).set_volume(0.3)
                     if laser_int != 0:  # ЕСЛИ ЛАЗЕР УЖЕ ЗАПУЩЕН, ТО У НЕГО СТАТИЧЕСКИЙ Х
                         pass
                     else:
@@ -197,7 +206,7 @@ def game_loop():
             laser_y = 490
         # things(thingx, thingy, thingw, thingh, color)
 
-        things(beetle, things_start_x, things_start_y)  # СОЗДАНИЕ ЖУКА
+        things(beetle_chosen, things_start_x, things_start_y)  # СОЗДАНИЕ ЖУКА
 
         things_start_y += thing_speed  # ИЗМЕНЕНИЕ СКОРОСТИ
         thing_speed += 0.000001
@@ -207,6 +216,7 @@ def game_loop():
         # ВРЕЗАНИЕ ЛАЗЕРА В ЖУКА
         if laser_y < things_start_y and laser_int != 0:  # ПРОВЕРКА ПО ОСИ Y
             if things_start_x <= laser_int <= things_start_x + 70:  # ПРОВЕРКА ГРАНИЦЫ ПО ОСИ Х
+                beetle_chosen = pick_beetle_model([beetle1, beetle2])
                 dodge += 1
                 things_start_y = 0 - thing_height - 10  # СОЗДАНИЕ ЖУКА (Y)
                 things_start_x = random.randrange(0, DISPLAY_WIDTH - thing_width)  # СОЗДАНИЕ ЖУКА (Х)
@@ -215,14 +225,17 @@ def game_loop():
                 points += 1  # КОЛИЧЕСТВО ПОДБИТЫХ +1
 
         # СТОЛКНОВЕНИЕ С ЖУКОМ ТАЧКИ
-        if y <= things_start_y + thing_height - 25:  # -25, чтобы немного наложить жука на тачку
+        if y <= things_start_y + thing_height - 25 <= y + car_height:  # -25, чтобы немного наложить жука на тачку
             if (
-                    x + 10 < things_start_x < x + car_width - 10 or
-                    x + 10 < things_start_x + thing_width < x + car_width - 10):
+                    things_start_x + 10 <= x <= things_start_x + thing_width - 10 or
+                    things_start_x + 10 <= x + car_width <= things_start_x + thing_width - 10 or
+                    x + 10 <= things_start_x <= x + car_width - 10 or
+                    x + 10 <= things_start_x + thing_width <= x + car_width - 10):
                 crash(points)
 
         # СОЗДАНИЕ ЖУКА ПРИ ЕГО ВЫХОДЕ ЗА ГРАНИЦЫ
         if things_start_y >= DISPLAY_HEIGHT:
+            beetle_chosen = pick_beetle_model([beetle1, beetle2])
             things_start_y = 0 - thing_height - 10
             things_start_x = random.randrange(2, DISPLAY_WIDTH - thing_width - 1)
             dodge += 1
